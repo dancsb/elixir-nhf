@@ -24,18 +24,24 @@ defmodule Nhf1 do
     !Enum.any?(selected, fn {x, y, _d} -> abs(x - nx) <= 1 and abs(y - ny) <= 1 end)
   end
 
-  defp suck_dick([possible_tents | rest], selected, tents_count_rows, tents_count_cols) do
-    Enum.each(possible_tents, fn {x, y, d} ->
+  defp solve([possible_tents | rest], selected, tents_count_rows, tents_count_cols, solutions) do
+    Enum.flat_map(possible_tents, fn {x, y, d} ->
       if Enum.at(tents_count_rows, x - 1) != 0 and Enum.at(tents_count_cols, y - 1) != 0 and check_selection({x, y}, selected) do
         new_tents_count_rows = List.update_at(tents_count_rows, x - 1, &(&1 - 1))
         new_tents_count_cols = List.update_at(tents_count_cols, y - 1, &(&1 - 1))
-        suck_dick(rest, [{x, y, d} | selected], new_tents_count_rows, new_tents_count_cols)
+        solve(rest, [{x, y, d} | selected], new_tents_count_rows, new_tents_count_cols, solutions)
+      else
+        []
       end
     end)
   end
 
-  defp suck_dick([], selected, _tents_count_rows, _tents_count_cols) do
-    Enum.map(selected, fn {_x, _y, d} -> d end) |> Enum.reverse() |> IO.inspect()
+  defp solve([], selected, tents_count_rows, tents_count_cols, solutions) do
+    if Enum.any?(tents_count_rows, fn x -> x > 0 end) or Enum.any?(tents_count_cols, fn y -> y > 0 end) do
+      solutions
+    else
+      [Enum.map(selected, fn {_x, _y, d} -> d end) |> Enum.reverse() | solutions]
+    end
   end
 
   @spec satrak(pd::puzzle_desc) :: tss::[tent_dirs]
@@ -47,8 +53,7 @@ defmodule Nhf1 do
       xd = if row + 1 > 0 and row + 1 <= length(elem(pd, 0)) and !Enum.member?(elem(pd, 2), {row + 1, col}) do [{row + 1, col, :s} | xd] else xd end
            if col - 1 > 0 and col - 1 <= length(elem(pd, 1)) and !Enum.member?(elem(pd, 2), {row, col - 1}) do [{row, col - 1, :w} | xd] else xd end
     end)
-    suck_dick(possible_tents, [], elem(pd, 0), elem(pd, 1))
-    [[]]
+    solve(possible_tents, [], elem(pd, 0), elem(pd, 1), [])
   end
 
 end
