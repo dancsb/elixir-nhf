@@ -20,40 +20,48 @@ defmodule Nhf1 do
   @type dir       :: :n | :e | :s | :w # a sátorpozíciók iránya: north, east, south, west
   @type tent_dirs :: [dir]             # a sátorpozíciók irányának listája a fákhoz képest
 
+  @type p_tent :: {row, col, dir} # egy lehetséges sátor koordinátái és iránya a fájához képest
+
+  # megmondja, hogy egy új sátor ütközik-e a már lerakottakkal
+  @spec check_selection(field::field, selected::[p_tent]) :: boolean
   defp check_selection({nx, ny}, selected) do
     !Enum.any?(selected, fn {x, y, _d} -> abs(x - nx) <= 1 and abs(y - ny) <= 1 end)
   end
 
-  defp solve([possible_tents | rest], selected, tents_count_rows, tents_count_cols, solutions) do
+  # visszaadja a feladvány összes megoldását
+  @spec solve([p_tent], selected::[p_tent], tents_count_rows::tents_count_rows, tents_count_cols::tents_count_cols) :: [[dir]]
+  defp solve([possible_tents | rest], selected, tents_count_rows, tents_count_cols) do
     Enum.flat_map(possible_tents, fn {x, y, d} ->
       if Enum.at(tents_count_rows, x - 1) != 0 and Enum.at(tents_count_cols, y - 1) != 0 and check_selection({x, y}, selected) do
         new_tents_count_rows = List.update_at(tents_count_rows, x - 1, &(&1 - 1))
         new_tents_count_cols = List.update_at(tents_count_cols, y - 1, &(&1 - 1))
-        solve(rest, [{x, y, d} | selected], new_tents_count_rows, new_tents_count_cols, solutions)
+        solve(rest, [{x, y, d} | selected], new_tents_count_rows, new_tents_count_cols)
       else
         []
       end
     end)
   end
 
-  defp solve([], selected, tents_count_rows, tents_count_cols, solutions) do
+  # visszaadja a megoldást ha elfogytak a lerakandó sátrak és a sátrak száma soronként és oszloponként is megfelelő
+  defp solve([], selected, tents_count_rows, tents_count_cols) do
     if Enum.any?(tents_count_rows, fn x -> x > 0 end) or Enum.any?(tents_count_cols, fn y -> y > 0 end) do
-      solutions
+      []
     else
-      [Enum.map(selected, fn {_x, _y, d} -> d end) |> Enum.reverse() | solutions]
+      [Enum.map(selected, fn {_x, _y, d} -> d end) |> Enum.reverse()]
     end
   end
 
   @spec satrak(pd::puzzle_desc) :: tss::[tent_dirs]
   # tss a pd feladványleíróval megadott feladvány összes megoldásának listája, tetszőleges sorrendben
   def satrak(pd) do
-    possible_tents = elem(pd, 2) |> Enum.map(fn {row, col} ->
-      xd = if row - 1 > 0 and row - 1 <= length(elem(pd, 0)) and !Enum.member?(elem(pd, 2), {row - 1, col}) do [{row - 1, col, :n}] else [] end
-      xd = if col + 1 > 0 and col + 1 <= length(elem(pd, 1)) and !Enum.member?(elem(pd, 2), {row, col + 1}) do [{row, col + 1, :e} | xd] else xd end
-      xd = if row + 1 > 0 and row + 1 <= length(elem(pd, 0)) and !Enum.member?(elem(pd, 2), {row + 1, col}) do [{row + 1, col, :s} | xd] else xd end
-           if col - 1 > 0 and col - 1 <= length(elem(pd, 1)) and !Enum.member?(elem(pd, 2), {row, col - 1}) do [{row, col - 1, :w} | xd] else xd end
+    # a lehetséges sátror elhelyezések kigyűjtése fákhoz képest
+    all_possible_tents = elem(pd, 2) |> Enum.map(fn {row, col} ->
+      temp = if row - 1 > 0 and !Enum.member?(elem(pd, 2), {row - 1, col}) do [{row - 1, col, :n}] else [] end
+      temp = if col + 1 <= length(elem(pd, 1)) and !Enum.member?(elem(pd, 2), {row, col + 1}) do [{row, col + 1, :e} | temp] else temp end
+      temp = if row + 1 <= length(elem(pd, 0)) and !Enum.member?(elem(pd, 2), {row + 1, col}) do [{row + 1, col, :s} | temp] else temp end
+           if col - 1 > 0 and !Enum.member?(elem(pd, 2), {row, col - 1}) do [{row, col - 1, :w} | temp] else temp end
     end)
-    solve(possible_tents, [], elem(pd, 0), elem(pd, 1), [])
+    solve(all_possible_tents, [], elem(pd, 0), elem(pd, 1))
   end
 
 end
